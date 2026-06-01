@@ -632,6 +632,50 @@ textarea.gi-input {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   Sidebar footer stats bar
+   ══════════════════════════════════════════════════════════════════════════ */
+.gi-sidebar-footer {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  border-top: 1px solid var(--gi-border);
+  background: var(--gi-surface);
+  flex-shrink: 0;
+  padding: 0 4px;
+}
+
+.gi-footer-stat {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+  justify-content: center;
+}
+
+.gi-footer-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--gi-text-muted);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.gi-footer-value {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gi-text-dim);
+  font-variant-numeric: tabular-nums;
+  transition: color 0.2s;
+}
+
+.gi-footer-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--gi-border-default);
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    Animations
    ══════════════════════════════════════════════════════════════════════════ */
 @keyframes spin { to { transform: rotate(360deg); } }

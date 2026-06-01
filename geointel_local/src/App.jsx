@@ -575,6 +575,142 @@ function makeCustomLayer(r, layer) {
   return makeHexLayer(r.H3HexagonLayer, layer)
 }
 
+// Compact slider with gradient fill track
+function MiniRange({ label, min, max, step, value, fmt, onChange }) {
+  const pct = ((value - min) / (max - min)) * 100
+  const bg  = `linear-gradient(to right, var(--gi-blue) ${pct}%, var(--gi-border-default) ${pct}%)`
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+      <span style={{ width:62, fontSize:11, fontWeight:500, color:'var(--gi-text-muted)', flexShrink:0 }}>{label}</span>
+      <input type="range" className="geo-slider" min={min} max={max} step={step} value={value}
+        onChange={e => onChange(Number(e.target.value))}
+        style={{ flex:1, background:bg }} />
+      <span style={{ width:36, textAlign:'right', fontSize:11, fontWeight:600,
+        color:'var(--gi-text-dim)', flexShrink:0, fontVariantNumeric:'tabular-nums' }}>{fmt(value)}</span>
+    </div>
+  )
+}
+
+// ── Minimal SVG icon components ───────────────────────────────────────────
+function EyeIcon({ open }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M1 7.5S3.5 3 7.5 3s6.5 4.5 6.5 4.5S11.5 12 7.5 12 1 7.5 1 7.5z"
+        stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+      <circle cx="7.5" cy="7.5" r="1.8" fill="currentColor"/>
+      {!open && <line x1="2" y1="2" x2="13" y2="13" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>}
+    </svg>
+  )
+}
+
+function DragIcon() {
+  return (
+    <svg width="10" height="14" viewBox="0 0 10 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {[2,6,10].map(y => (
+        <g key={y}>
+          <circle cx="3" cy={y} r="1.1" fill="currentColor"/>
+          <circle cx="7" cy={y} r="1.1" fill="currentColor"/>
+        </g>
+      ))}
+    </svg>
+  )
+}
+
+function ChevronIcon({ up }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d={up ? 'M2 8l4-4 4 4' : 'M2 4l4 4 4-4'}
+        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+function LoadSpinner() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg"
+      style={{ animation:'spin 0.9s linear infinite', flexShrink:0 }}>
+      <circle cx="7" cy="7" r="5.5" stroke="var(--gi-border-default)" strokeWidth="2" fill="none"/>
+      <path d="M7 1.5A5.5 5.5 0 0 1 12.5 7" stroke="var(--gi-blue)" strokeWidth="2"
+        fill="none" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+// ── CodeMirror-backed SQL editor ──────────────────────────────────────────
+function SqlEditor({ value, onChange }) {
+  const containerRef = useRef(null)
+  const cmRef        = useRef(null)
+
+  // Initialise CodeMirror once on mount
+  useEffect(() => {
+    const CM = window.CodeMirror
+    if (!containerRef.current || !CM) return
+
+    // React StrictMode mounts twice — wipe any leftover DOM from the first run
+    containerRef.current.innerHTML = ''
+
+    const cm = CM(containerRef.current, {
+      value:             value ?? '',
+      mode:              'text/x-sql',
+      theme:             'dracula',
+      lineNumbers:       true,
+      tabSize:           2,
+      indentWithTabs:    false,
+      lineWrapping:      true,
+      autofocus:         true,
+      matchBrackets:     true,
+      autoCloseBrackets: true,
+      extraKeys: {
+        Tab:      instance => instance.replaceSelection('  '),
+        'Ctrl-/': 'toggleComment',
+        'Cmd-/':  'toggleComment',
+      },
+    })
+
+    cm.setSize('100%', 200)
+    // brief defer so the modal's flex layout settles before CodeMirror measures
+    setTimeout(() => cm.refresh(), 30)
+
+    cm.on('change', inst => onChange(inst.getValue()))
+    cmRef.current = cm
+
+    return () => {
+      // Clear the container so a re-mount starts with an empty div
+      if (containerRef.current) containerRef.current.innerHTML = ''
+      cmRef.current = null
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep editor in sync when value changes externally (edit-mode pre-fill)
+  useEffect(() => {
+    const cm = cmRef.current
+    if (cm && cm.getValue() !== value) {
+      const cursor = cm.getCursor()
+      cm.setValue(value ?? '')
+      cm.setCursor(cursor)
+    }
+  }, [value])
+
+  return (
+    <div>
+      {/* Faux window-chrome title bar */}
+      <div className="sql-editor-header">
+        <span className="sql-editor-dot" style={{ background:'#ff5f57' }}/>
+        <span className="sql-editor-dot" style={{ background:'#febc2e' }}/>
+        <span className="sql-editor-dot" style={{ background:'#28c840' }}/>
+        <span style={{ flex:1 }}/>
+        <span style={{ fontSize:10, color:'#6272a4', fontFamily:'monospace', letterSpacing:'0.05em' }}>SQL</span>
+      </div>
+      <div className="sql-editor" ref={containerRef}/>
+    </div>
+  )
+}
+
+function Hint({ children, blue, green, red }) {
+  const cls = blue ? 'gi-hint-blue' : green ? 'gi-hint-green' : red ? 'gi-hint-red' : 'gi-hint-neutral'
+  return <div className={`gi-hint ${cls}`} style={{ marginBottom:6 }}>{children}</div>
+}
+
 // ── App ───────────────────────────────────────────────────────────────────
 export default function App() {
   const mapRef  = useRef(null)
@@ -665,6 +801,8 @@ export default function App() {
   const [pointsOpen,   setPointsOpen]   = useState(false)
   const [polygonsOpen, setPolygonsOpen] = useState(false)
   const [sqlOpen,      setSqlOpen]      = useState(true)   // SQL always open (no data fetch)
+  const [baseOpen,     setBaseOpen]     = useState(false)
+  const [csvOpen,      setCsvOpen]      = useState(false)
 
   // ── Bound Area state ──────────────────────────────────────────────────
   const [boundMode,          setBoundMode]          = useState('draw')  // 'draw'|'pincode'|'circle'|'custom'|'sql'
@@ -694,6 +832,10 @@ export default function App() {
   const [pincodeBoundaries, setPincodeBoundaries] = useState(null)
   const [pincodeStatus,     setPincodeStatus]     = useState('idle')  // idle|loading|success|error
   const [pincodeError,      setPincodeError]      = useState(null)
+
+  // ── Context menu (right-click on H3 cell) ────────────────────────────
+  const [contextMenu, setContextMenu] = useState(null) // { x, y, h3Index, lat, lng }
+  const [contextCopied, setContextCopied] = useState(null) // 'h3'|'latlng'
 
   // ── Vertex deletion state ─────────────────────────────────────────────
   const [selectedVertexIdx, setSelectedVertexIdx] = useState(null)
@@ -1461,6 +1603,46 @@ export default function App() {
         map.getCanvas().style.cursor = ''
       })
 
+      map.on('contextmenu', (e) => {
+        e.originalEvent.preventDefault()
+        const { x, y } = e.point
+        const r = mapRef.current
+        if (!r?.overlay) return
+
+        const picked = r.overlay.pickObject({ x, y, radius: 8 })
+        if (!picked?.object) return
+
+        const { object, layer } = picked
+        let h3Index = null, lat = null, lng = null
+
+        if (layer?.id?.startsWith('h3-grid-')) {
+          h3Index = object.h3_index
+          lat = parseFloat(object.lat)
+          lng = parseFloat(object.long ?? object.lng)
+        } else if (
+          layer?.id === 'h3-base' || layer?.id === 'h3-csv' || layer?.id === 'h3-selection' ||
+          layer?.id?.startsWith('h3-custom-')
+        ) {
+          h3Index = object.hex
+          if (window.h3?.h3ToGeo) {
+            const [clat, clng] = window.h3.h3ToGeo(h3Index)
+            lat = clat
+            lng = clng
+          }
+        }
+
+        if (!h3Index) return
+
+        setContextMenu({
+          x: e.originalEvent.clientX,
+          y: e.originalEvent.clientY,
+          h3Index,
+          lat,
+          lng,
+        })
+        setContextCopied(null)
+      })
+
       // ── deck.gl overlay ───────────────────────────────────────────
       const overlay = new MapboxOverlay({
         interleaved: false,
@@ -1552,6 +1734,21 @@ export default function App() {
     document.addEventListener('keydown', handler, true)
     return () => document.removeEventListener('keydown', handler, true)
   }, [isComplete, drawMode, deleteVertex])
+
+  // ── Dismiss context menu on outside click or Escape ──────────────────
+  useEffect(() => {
+    if (!contextMenu) return
+    const dismiss = (e) => {
+      if (e.type === 'keydown' && e.key !== 'Escape') return
+      setContextMenu(null)
+    }
+    document.addEventListener('mousedown', dismiss)
+    document.addEventListener('keydown', dismiss)
+    return () => {
+      document.removeEventListener('mousedown', dismiss)
+      document.removeEventListener('keydown', dismiss)
+    }
+  }, [contextMenu])
 
   // ── Sync MapLibre polygon visuals ─────────────────────────────────────
   useEffect(() => {
@@ -1728,13 +1925,6 @@ export default function App() {
 
   return (
     <div style={{ position:'fixed', inset:0, pointerEvents:'none', zIndex:10 }}>
-
-      {/* ── Global slider CSS ─────────────────────────────────────── */}
-      <style>{`
-        .geo-slider { -webkit-appearance:none; appearance:none; height:4px; border-radius:2px; outline:none; cursor:pointer; border:none; }
-        .geo-slider::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:#276ef1; cursor:pointer; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,0.25); }
-        .geo-slider::-moz-range-thumb { width:14px; height:14px; border-radius:50%; background:#276ef1; cursor:pointer; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,0.25); }
-      `}</style>
 
       {/* Hidden CSV file input — triggered by button click */}
       <input
@@ -2633,6 +2823,180 @@ export default function App() {
             </div>
             )}
 
+            {/* ══════════════════════════════════════════════════════
+                 ⬡  H3 BASE LAYER
+            ══════════════════════════════════════════════════════ */}
+            <div className="gi-section-hd" onClick={() => setBaseOpen(v => !v)}>
+              <div className="gi-section-icon" style={{ background:'rgba(57,197,207,0.12)' }}>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M6 1L10.33 3.5V8.5L6 11L1.67 8.5V3.5L6 1Z" stroke="#39c5cf" strokeWidth="1.2"/>
+                  <circle cx="6" cy="6" r="2" fill="#39c5cf" opacity="0.45"/>
+                </svg>
+              </div>
+              <span className="gi-section-title">H3 Base Layer</span>
+              {h3Data?.length > 0 && (
+                <span className="gi-badge gi-badge-green">{h3Data.length.toLocaleString()}</span>
+              )}
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ marginLeft:'auto', flexShrink:0, transition:'transform 0.2s', transform: baseOpen ? 'rotate(180deg)' : 'rotate(0deg)', color:'var(--gi-text-muted)' }}>
+                <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+
+            {baseOpen && (
+            <div className="gi-section-body">
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                <button onClick={loadH3Data}
+                  className="gi-btn gi-btn-ghost"
+                  style={{ width:'100%', padding:'7px 0' }}>
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" style={{ flexShrink:0 }}>
+                    <path d="M5.5 1L10 3.5V8.5L5.5 10L1 8.5V3.5L5.5 1Z" stroke="currentColor" strokeWidth="1.2"/>
+                  </svg>
+                  {h3Data?.length > 0 ? '↻ Reload H3 Data' : 'Load H3 Data'}
+                </button>
+
+                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                  <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', padding:'3px 2px', borderRadius:'var(--r-sm)' }}>
+                    <input type="checkbox" checked={extruded} onChange={e => setExtruded(e.target.checked)}
+                      style={{ accentColor:'var(--gi-cyan)', width:13, height:13, cursor:'pointer', flexShrink:0 }} />
+                    <span style={{ fontSize:12, color:'var(--gi-text-dim)' }}>3D Extrusion</span>
+                  </label>
+                  <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', padding:'3px 2px', borderRadius:'var(--r-sm)' }}>
+                    <input type="checkbox" checked={wireframe} onChange={e => setWireframe(e.target.checked)}
+                      style={{ accentColor:'var(--gi-cyan)', width:13, height:13, cursor:'pointer', flexShrink:0 }} />
+                    <span style={{ fontSize:12, color:'var(--gi-text-dim)' }}>Wireframe</span>
+                  </label>
+                </div>
+
+                <MiniRange label="Coverage"   min={0}   max={1}   step={0.01} value={coverage}       fmt={v => v.toFixed(2)} onChange={setCoverage} />
+                <MiniRange label="Elev Scale" min={1}   max={200} step={1}    value={elevationScale}  fmt={v => `${v}×`}      onChange={setElevationScale} />
+
+                {hasSelection && (
+                  <div style={{ borderTop:'1px solid var(--gi-border)', paddingTop:10, marginTop:2, display:'flex', flexDirection:'column', gap:7 }}>
+                    <div style={{ fontSize:11, fontWeight:600, color:'var(--gi-text-dim)', letterSpacing:'0.03em' }}>
+                      DB Update — <span style={{ color:'var(--gi-blue)' }}>{selectedCells.size.toLocaleString()} cells</span> selected
+                    </div>
+                    <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                      <span style={{ fontSize:11, color:'var(--gi-text-muted)', flexShrink:0 }}>Count</span>
+                      <input
+                        type="number"
+                        value={updateCount}
+                        onChange={e => setUpdateCount(Number(e.target.value))}
+                        className="gi-input"
+                        style={{ height:30, padding:'0 8px', fontSize:12, flex:1 }}
+                      />
+                      <button
+                        onClick={handleUpdateDB}
+                        disabled={updateStatus === 'loading'}
+                        className={`gi-btn ${updateStatus === 'success' ? 'gi-btn-success' : updateStatus === 'error' ? 'gi-btn-danger' : 'gi-btn-primary'}`}
+                        style={{ padding:'0 12px', height:30, flexShrink:0 }}>
+                        {updateStatus === 'loading' ? <LoadSpinner />
+                         : updateStatus === 'success' ? '✓ Saved'
+                         : updateStatus === 'error'   ? '✗ Error'
+                         : 'Update DB'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════
+                 ↑  CSV IMPORT
+            ══════════════════════════════════════════════════════ */}
+            <div className="gi-section-hd" onClick={() => setCsvOpen(v => !v)}>
+              <div className="gi-section-icon" style={{ background:'rgba(210,153,34,0.12)' }}>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <rect x="2" y="1" width="8" height="10" rx="1" stroke="#d29922" strokeWidth="1.2"/>
+                  <line x1="4" y1="4" x2="8" y2="4" stroke="#d29922" strokeWidth="1.1" strokeLinecap="round"/>
+                  <line x1="4" y1="6" x2="8" y2="6" stroke="#d29922" strokeWidth="1.1" strokeLinecap="round"/>
+                  <line x1="4" y1="8" x2="6.5" y2="8" stroke="#d29922" strokeWidth="1.1" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <span className="gi-section-title">CSV Import</span>
+              {csvData && (
+                <span className="gi-badge gi-badge-neutral">{csvData.length.toLocaleString()} rows</span>
+              )}
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ marginLeft:'auto', flexShrink:0, transition:'transform 0.2s', transform: csvOpen ? 'rotate(180deg)' : 'rotate(0deg)', color:'var(--gi-text-muted)' }}>
+                <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+
+            {csvOpen && (
+            <div className="gi-section-body">
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {!csvData ? (
+                  <>
+                    <div className="gi-hint gi-hint-neutral">
+                      CSV requires <code style={{ background:'var(--gi-card)', color:'var(--gi-cyan)', padding:'1px 4px', borderRadius:3, fontSize:11 }}>hex</code> and <code style={{ background:'var(--gi-card)', color:'var(--gi-cyan)', padding:'1px 4px', borderRadius:3, fontSize:11 }}>count</code> columns.
+                    </div>
+                    <button onClick={() => csvInputRef.current?.click()}
+                      className="gi-btn gi-btn-ghost"
+                      style={{ width:'100%', padding:'8px 0' }}>
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink:0 }}>
+                        <path d="M6 1v7M3 5l3-3 3 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M1 9.5A0.5 0.5 0 001.5 10h9a0.5 0.5 0 00.5-.5V9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                      </svg>
+                      Upload CSV File
+                    </button>
+                    {csvError && <Hint red>{csvError}</Hint>}
+                  </>
+                ) : (
+                  <>
+                    <div className="gi-hint gi-hint-green" style={{ display:'flex', alignItems:'center', gap:7 }}>
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink:0 }}>
+                        <circle cx="5" cy="5" r="4" fill="currentColor" opacity="0.25"/>
+                        <path d="M3 5l1.5 1.5L7 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <span style={{ fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>{csvFileName}</span>
+                      <span style={{ flexShrink:0, opacity:0.8 }}>{csvData.length.toLocaleString()} rows</span>
+                    </div>
+                    {csvError && <Hint red>{csvError}</Hint>}
+                    <div style={{ display:'flex', gap:6 }}>
+                      <button
+                        onClick={handleCsvImport}
+                        disabled={csvImportStatus === 'loading'}
+                        className={`gi-btn ${csvImportStatus === 'success' ? 'gi-btn-success' : csvImportStatus === 'error' ? 'gi-btn-danger' : 'gi-btn-primary'}`}
+                        style={{ flex:1, padding:'7px 0' }}>
+                        {csvImportStatus === 'loading' ? <><LoadSpinner /> Importing…</>
+                         : csvImportStatus === 'success' ? '✓ Imported'
+                         : csvImportStatus === 'error'   ? '✗ Failed'
+                         : '↑ Import to DB'}
+                      </button>
+                      <button onClick={clearCsvData}
+                        className="gi-btn gi-btn-ghost"
+                        style={{ padding:'7px 12px' }}>
+                        Clear
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+            )}
+
+          </div>
+
+          {/* ── Sidebar stats footer ──────────────────────────────────────── */}
+          <div className="gi-sidebar-footer">
+            <div className="gi-footer-stat">
+              <span className="gi-footer-label">Selected</span>
+              <span className="gi-footer-value" style={selectedCells.size > 0 ? { color:'var(--gi-blue)' } : {}}>
+                {selectedCells.size > 0 ? selectedCells.size.toLocaleString() : '—'}
+              </span>
+            </div>
+            <div className="gi-footer-divider"/>
+            <div className="gi-footer-stat">
+              <span className="gi-footer-label">H3 Base</span>
+              <span className="gi-footer-value">{h3Data?.length ? h3Data.length.toLocaleString() : '—'}</span>
+            </div>
+            <div className="gi-footer-divider"/>
+            <div className="gi-footer-stat">
+              <span className="gi-footer-label">Bound</span>
+              <span className="gi-footer-value" style={boundMeta ? { color:'var(--gi-green)' } : {}}>
+                {boundMeta ? (boundMeta.type === 'all' ? 'All' : 'Active') : 'None'}
+              </span>
+            </div>
           </div>
         </div>
       )}
@@ -2753,199 +3117,106 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* ── Right-click context menu ────────────────────────────────────── */}
+      {contextMenu && (() => {
+        const menuW = 252
+        const menuH = 148
+        const left = contextMenu.x + menuW > window.innerWidth  ? contextMenu.x - menuW : contextMenu.x + 6
+        const top  = contextMenu.y + menuH > window.innerHeight ? contextMenu.y - menuH : contextMenu.y + 6
+
+        const copy = (text, field) => {
+          navigator.clipboard.writeText(text).catch(() => {})
+          setContextCopied(field)
+          setTimeout(() => setContextCopied(null), 1800)
+        }
+
+        return (
+          <div
+            onMouseDown={e => e.stopPropagation()}
+            style={{
+              position: 'fixed', left, top, zIndex: 9999,
+              pointerEvents: 'auto',
+              width: menuW,
+              background: '#0d1117',
+              border: '1px solid #30363d',
+              borderRadius: 9,
+              boxShadow: '0 12px 32px rgba(0,0,0,0.7)',
+              overflow: 'hidden',
+              fontFamily: 'inherit',
+            }}
+          >
+            {/* Header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '7px 11px',
+              background: '#161b22',
+              borderBottom: '1px solid #21262d',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M6 1L10.33 3.5V8.5L6 11L1.67 8.5V3.5L6 1Z" stroke="#388bfd" strokeWidth="1.2" fill="rgba(56,139,253,0.15)"/>
+                </svg>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#8b949e', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  Cell Info
+                </span>
+              </div>
+              <button
+                onClick={() => setContextMenu(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b949e', fontSize: 14, lineHeight: 1, padding: '0 2px' }}
+              >✕</button>
+            </div>
+
+            {/* H3 Index row */}
+            <div style={{ padding: '9px 11px', borderBottom: '1px solid #21262d' }}>
+              <div style={{ fontSize: 10, color: '#8b949e', marginBottom: 4, fontWeight: 500 }}>H3 Index</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{
+                  flex: 1, fontSize: 11, fontFamily: 'monospace', color: '#e6edf3',
+                  wordBreak: 'break-all', lineHeight: 1.4,
+                }}>{contextMenu.h3Index}</span>
+                <button
+                  onClick={() => copy(contextMenu.h3Index, 'h3')}
+                  style={{
+                    flexShrink: 0, background: contextCopied === 'h3' ? 'rgba(63,185,80,0.15)' : 'rgba(255,255,255,0.06)',
+                    border: `1px solid ${contextCopied === 'h3' ? 'rgba(63,185,80,0.4)' : '#30363d'}`,
+                    borderRadius: 5, cursor: 'pointer',
+                    color: contextCopied === 'h3' ? '#3fb950' : '#8b949e',
+                    fontSize: 11, padding: '3px 8px', fontFamily: 'inherit',
+                    transition: 'all 0.15s',
+                  }}
+                >{contextCopied === 'h3' ? '✓' : 'Copy'}</button>
+              </div>
+            </div>
+
+            {/* Lat / Lng row */}
+            {contextMenu.lat !== null && contextMenu.lng !== null && (
+              <div style={{ padding: '9px 11px' }}>
+                <div style={{ fontSize: 10, color: '#8b949e', marginBottom: 4, fontWeight: 500 }}>Lat, Lng</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ flex: 1, fontSize: 12, fontFamily: 'monospace', color: '#e6edf3' }}>
+                    {contextMenu.lat.toFixed(6)}, {contextMenu.lng.toFixed(6)}
+                  </span>
+                  <button
+                    onClick={() => copy(`${contextMenu.lat.toFixed(6)}, ${contextMenu.lng.toFixed(6)}`, 'latlng')}
+                    style={{
+                      flexShrink: 0, background: contextCopied === 'latlng' ? 'rgba(63,185,80,0.15)' : 'rgba(255,255,255,0.06)',
+                      border: `1px solid ${contextCopied === 'latlng' ? 'rgba(63,185,80,0.4)' : '#30363d'}`,
+                      borderRadius: 5, cursor: 'pointer',
+                      color: contextCopied === 'latlng' ? '#3fb950' : '#8b949e',
+                      fontSize: 11, padding: '3px 8px', fontFamily: 'inherit',
+                      transition: 'all 0.15s',
+                    }}
+                  >{contextCopied === 'latlng' ? '✓' : 'Copy'}</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }
 
-// ── Tiny presentational components ───────────────────────────────────────
-function SectionTitle({ children, top }) {
-  return (
-    <div style={{
-      fontWeight:700, fontSize:12, color:'var(--gi-text)', marginBottom:10,
-      letterSpacing:'0.02em',
-      ...(top ? { marginTop:12, paddingTop:10, borderTop:'1px solid var(--gi-border)' } : {}),
-    }}>{children}</div>
-  )
-}
 
-function CheckRow({ label, checked, onChange }) {
-  return (
-    <label style={row}>
-      <span style={lbl}>{label}</span>
-      <input type="checkbox" checked={checked} onChange={e=>onChange(e.target.checked)}
-        style={{ accentColor:'var(--gi-blue)', width:14, height:14, cursor:'pointer' }} />
-    </label>
-  )
-}
 
-// Compact slider with gradient fill track
-function MiniRange({ label, min, max, step, value, fmt, onChange }) {
-  const pct = ((value - min) / (max - min)) * 100
-  const bg  = `linear-gradient(to right, var(--gi-blue) ${pct}%, var(--gi-border-default) ${pct}%)`
-  return (
-    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-      <span style={{ width:62, fontSize:11, fontWeight:500, color:'var(--gi-text-muted)', flexShrink:0 }}>{label}</span>
-      <input type="range" className="geo-slider" min={min} max={max} step={step} value={value}
-        onChange={e => onChange(Number(e.target.value))}
-        style={{ flex:1, background:bg }} />
-      <span style={{ width:36, textAlign:'right', fontSize:11, fontWeight:600,
-        color:'var(--gi-text-dim)', flexShrink:0, fontVariantNumeric:'tabular-nums' }}>{fmt(value)}</span>
-    </div>
-  )
-}
-
-// ── Minimal SVG icon components ───────────────────────────────────────────
-function EyeIcon({ open }) {
-  return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M1 7.5S3.5 3 7.5 3s6.5 4.5 6.5 4.5S11.5 12 7.5 12 1 7.5 1 7.5z"
-        stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
-      <circle cx="7.5" cy="7.5" r="1.8" fill="currentColor"/>
-      {!open && <line x1="2" y1="2" x2="13" y2="13" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>}
-    </svg>
-  )
-}
-
-function DragIcon() {
-  return (
-    <svg width="10" height="14" viewBox="0 0 10 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {[2,6,10].map(y => (
-        <g key={y}>
-          <circle cx="3" cy={y} r="1.1" fill="currentColor"/>
-          <circle cx="7" cy={y} r="1.1" fill="currentColor"/>
-        </g>
-      ))}
-    </svg>
-  )
-}
-
-function ChevronIcon({ up }) {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d={up ? 'M2 8l4-4 4 4' : 'M2 4l4 4 4-4'}
-        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  )
-}
-
-function LoadSpinner() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg"
-      style={{ animation:'spin 0.9s linear infinite', flexShrink:0 }}>
-      <circle cx="7" cy="7" r="5.5" stroke="var(--gi-border-default)" strokeWidth="2" fill="none"/>
-      <path d="M7 1.5A5.5 5.5 0 0 1 12.5 7" stroke="var(--gi-blue)" strokeWidth="2"
-        fill="none" strokeLinecap="round"/>
-    </svg>
-  )
-}
-
-// ── CodeMirror-backed SQL editor ──────────────────────────────────────────
-function SqlEditor({ value, onChange }) {
-  const containerRef = useRef(null)
-  const cmRef        = useRef(null)
-
-  // Initialise CodeMirror once on mount
-  useEffect(() => {
-    const CM = window.CodeMirror
-    if (!containerRef.current || !CM) return
-
-    // React StrictMode mounts twice — wipe any leftover DOM from the first run
-    containerRef.current.innerHTML = ''
-
-    const cm = CM(containerRef.current, {
-      value:             value ?? '',
-      mode:              'text/x-sql',
-      theme:             'dracula',
-      lineNumbers:       true,
-      tabSize:           2,
-      indentWithTabs:    false,
-      lineWrapping:      true,
-      autofocus:         true,
-      matchBrackets:     true,
-      autoCloseBrackets: true,
-      extraKeys: {
-        Tab:      instance => instance.replaceSelection('  '),
-        'Ctrl-/': 'toggleComment',
-        'Cmd-/':  'toggleComment',
-      },
-    })
-
-    cm.setSize('100%', 200)
-    // brief defer so the modal's flex layout settles before CodeMirror measures
-    setTimeout(() => cm.refresh(), 30)
-
-    cm.on('change', inst => onChange(inst.getValue()))
-    cmRef.current = cm
-
-    return () => {
-      // Clear the container so a re-mount starts with an empty div
-      if (containerRef.current) containerRef.current.innerHTML = ''
-      cmRef.current = null
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Keep editor in sync when value changes externally (edit-mode pre-fill)
-  useEffect(() => {
-    const cm = cmRef.current
-    if (cm && cm.getValue() !== value) {
-      const cursor = cm.getCursor()
-      cm.setValue(value ?? '')
-      cm.setCursor(cursor)
-    }
-  }, [value])
-
-  return (
-    <div>
-      {/* Faux window-chrome title bar */}
-      <div className="sql-editor-header">
-        <span className="sql-editor-dot" style={{ background:'#ff5f57' }}/>
-        <span className="sql-editor-dot" style={{ background:'#febc2e' }}/>
-        <span className="sql-editor-dot" style={{ background:'#28c840' }}/>
-        <span style={{ flex:1 }}/>
-        <span style={{ fontSize:10, color:'#6272a4', fontFamily:'monospace', letterSpacing:'0.05em' }}>SQL</span>
-      </div>
-      <div className="sql-editor" ref={containerRef}/>
-    </div>
-  )
-}
-
-function RangeRow({ label, min, max, step, value, fmt, onChange, last }) {
-  const pct = ((value - min) / (max - min)) * 100
-  const bg  = `linear-gradient(to right, var(--gi-blue) ${pct}%, var(--gi-border-default) ${pct}%)`
-  return (
-    <div style={{ ...row, ...(last?{borderBottom:'none',paddingBottom:0,marginBottom:0}:{}) }}>
-      <span style={lbl}>{label}</span>
-      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-        <input type="range" className="geo-slider" min={min} max={max} step={step} value={value}
-          onChange={e=>onChange(Number(e.target.value))}
-          style={{ width:84, background:bg }} />
-        <span style={{ width:34, textAlign:'right', fontSize:11, color:'var(--gi-text-dim)' }}>{fmt(value)}</span>
-      </div>
-    </div>
-  )
-}
-
-function Hint({ children, blue, green, red }) {
-  const cls = blue ? 'gi-hint-blue' : green ? 'gi-hint-green' : red ? 'gi-hint-red' : 'gi-hint-neutral'
-  return <div className={`gi-hint ${cls}`} style={{ marginBottom:6 }}>{children}</div>
-}
-
-function BtnRow({ children }) {
-  return <div style={{ display:'flex', flexDirection:'column', gap:5, marginBottom:4 }}>{children}</div>
-}
-
-const VARIANT = {
-  primary: { background:'var(--gi-blue)',    color:'#fff', border:'none' },
-  danger:  { background:'var(--gi-red)',      color:'#fff', border:'none' },
-  success: { background:'var(--gi-green)',    color:'#fff', border:'none' },
-  save:    { background:'#7c3aed',            color:'#fff', border:'none' },
-  outline: { background:'var(--gi-card)',     color:'var(--gi-text-dim)', border:'1px solid var(--gi-border-default)' },
-}
-function Btn({ children, variant='primary', onClick, disabled, style }) {
-  return (
-    <button disabled={disabled} onClick={onClick}
-      style={{ ...btn, ...VARIANT[variant], ...style }}>
-      {children}
-    </button>
-  )
-}
