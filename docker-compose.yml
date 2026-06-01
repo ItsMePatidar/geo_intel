@@ -1,0 +1,98 @@
+#   project-root/
+#   ├── docker-compose.yml
+#   ├── db/                        ← custom Dockerfile: postgres:16-alpine + postgis (native arm64)
+#   │   └── Dockerfile
+#   ├── geointel_local/
+#   ├── geointel_local_backend/
+#   └── H3_Data_Construction/      ← Python data-loader (profile: load)
+#       ├── Dockerfile
+#       ├── requirements.txt
+#       └── run_all.sh
+
+services:
+
+  # ── PostgreSQL + PostGIS (native arm64 + amd64) ─────────────────────────
+  # Uses a tiny custom image: postgres:16-alpine (multi-arch) + apk add postgis
+  # This avoids the "platform not found" error with postgis/postgis on Apple Silicon.
+  db:
+    build: ./db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB:       geointel_local
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./H3_Data_Construction/Migration/migration.sql:/docker-entrypoint-initdb.d/01_migration.sql:ro
+    ports:
+      - "5434:5432"   # 5434 on host → avoids conflict with local Postgres (5432) and any other instance (5433)
+                      # connect from host: psql -h localhost -p 5434 -U postgres geointel_local
+                      # remove this ports block entirely if you don't need direct host access to the DB
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d geointel_local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 40s   # give postgres time to run migration.sql before checks count
+
+  # ── Node / Express backend ──────────────────────────────────────────────
+  backend:
+    build:
+      context: ./geointel_local_backend
+    restart: unless-stopped
+    environment:
+      DB_HOST:     db        # Docker internal hostname — always port 5432 inside the network
+      DB_PORT:     5432
+      DB_NAME:     geointel_local
+      DB_USER:     postgres
+      DB_PASSWORD: password
+    ports:
+      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ── React frontend (nginx) ──────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./geointel_local
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  # ── Data loader (Python + GDAL + rasterio) ─────────────────────────────
+  # Only starts when you explicitly request the "load" profile.
+  # The H3_Data_Construction folder is mounted so the .tif files on your
+  # local disk are available inside the container without being copied in.
+  #
+  # Usage:
+  #   Run ALL loaders in order (base → land_cover → population):
+  #     docker compose --profile load run --rm loader
+  #
+  #   Run a single step:
+  #     docker compose --profile load run --rm loader python PrimaryH3/load_base_into_db.py
+  #     docker compose --profile load run --rm loader python WorldCover/load_land_cover_into_db.py
+  #     docker compose --profile load run --rm loader python "WorldPop Population/load_population_into_db.py"
+  loader:
+    build:
+      context: ./H3_Data_Construction
+    profiles: ["load"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST:     db
+      DB_PORT:     5432
+      DB_NAME:     geointel_local
+      DB_USER:     postgres
+      DB_PASSWORD: password
+    volumes:
+      # Mount the entire folder so .tif data files are accessible at runtime.
+      # Scripts reference paths relative to their own location, which works
+      # because the mount preserves the original directory structure.
+      - ./H3_Data_Construction:/app
+
+volumes:
+  pgdata:

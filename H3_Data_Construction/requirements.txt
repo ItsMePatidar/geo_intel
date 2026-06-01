@@ -1,0 +1,11 @@
+h3>=3.7
+numpy
+pandas
+psycopg2-binary
+rasterio
+shapely
+geopandas
+sqlalchemy
+geoalchemy2
+lxml
+osmium

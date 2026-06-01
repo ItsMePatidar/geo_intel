@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>geointel_local</title>
+    <!-- 1. MapLibre GL — required for the mapStyle basemap prop in deck.gl -->
+    <link href="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
+    <!-- deck.gl@8 looks for window.mapboxgl; alias maplibre-gl so it is found -->
+    <script>if (!window.mapboxgl && window.maplibregl) window.mapboxgl = window.maplibregl;</script>
+
+    <!-- 2. h3-js v3 — deck.gl@8 uses v3 API (h3GetResolution, h3ToGeo…) -->
+    <script src="https://unpkg.com/h3-js@3.7.2/dist/h3-js.umd.js"></script>
+
+    <!-- 3. deck.gl v8 standalone UMD -->
+    <script src="https://unpkg.com/deck.gl@8.9.35/dist.min.js"></script>
+
+    <!-- 4. CodeMirror 5 — SQL editor in the layer modal -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/comment/comment.min.js"></script>
+    <style>
+      /* CodeMirror SQL editor — size & border-radius */
+      .sql-editor .CodeMirror {
+        height: 200px;
+        border-radius: 0 0 8px 8px;
+        font-size: 13px;
+        font-family: "Fira Code","Cascadia Code","JetBrains Mono",monospace;
+        line-height: 1.6;
+      }
+      .sql-editor-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: #282a36;
+        border-radius: 8px 8px 0 0;
+        padding: 6px 12px;
+        border-bottom: 1px solid #44475a;
+      }
+      .sql-editor-dot { width:11px; height:11px; border-radius:50%; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

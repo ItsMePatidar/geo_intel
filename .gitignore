@@ -1,0 +1,44 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Node.js
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+
+# Geo / large data files
+*.osm.pbf
+*.osm
+*.tif
+*.tiff
+*.geotiff
+*.kmz
+*.kml
+*.csv
+H3_Data_Construction/WorldCover/Data/
+H3_Data_Construction/WorldPop Population/Data/
+H3_Data_Construction/WorldPop Urbanisation/Data/
+
+# Logs
+*.log
+logs/
+
+# Docker
+.docker/
+
+# Secrets / credentials
+*.pem
+*.key
+secrets/
